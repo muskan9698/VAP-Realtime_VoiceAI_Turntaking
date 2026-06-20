@@ -4,7 +4,7 @@ This repo is a fork of [VAP-Realtime](https://github.com/inokoj/VAP-Realtime) wi
 AI pipeline integration — wiring VAP's real-time turn-taking prediction into a full
 ASR → LLM → TTS voice agent.
 
-> Part of a larger project: [Turn-Taking in Voice AI Calls](https://github.com/muskan9698/turn-taking-voice-ai)
+> Part of a larger project: [Turn-Taking in Voice AI Calls](Voice-AI-Turn-Taking-Implementation)
 > See the [DualTurn side of this comparison here](https://github.com/muskan9698/Dualturn_VoiceAI_Turntaking).
 
 ## What is VAP-Realtime
