@@ -10,3 +10,31 @@ tools/output_offline.txt
 __pycache__/
 tflite_vap/
 tfjs_vap/
+Logs/
+
+# Models & checkpoints
+*.onnx
+*.bin
+*.pth
+*.pt
+checkpoints/
+
+# Audio
+*.wav
+*.mp3
+Logs/audio/
+
+# Env
+.env
+turntaking_env/
+venv/
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
