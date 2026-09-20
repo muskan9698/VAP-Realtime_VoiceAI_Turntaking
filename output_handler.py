@@ -145,11 +145,11 @@ class OutputHandler:
         self._tts_start_wall = None
         self._first_audio_lock = threading.Lock()
         print(f"{'='*50}\n")
-        print("Alisha: Hi! I am Alisha, your personal therapist at Carewell. How can I help you?")
+        print("Hope: Hi! I am Hope. Welcome to our conversation. How can I assist you today?")
         print(f"{'='*50}\n")
 
         # Speak intro — OutputHandler and TTSHandler now exist
-        INTRO = "Hi! I am Alisha, your personal therapist at Carewell. How can I help you?"
+        INTRO = "Hi! I am Hope. Welcome to our conversation. How can I assist you today?"
         agent_speaking.set()
         self.tts.speak_sentence(INTRO,None)
         agent_speaking.clear()
@@ -159,6 +159,7 @@ class OutputHandler:
 
         silence_frames = 0
         SILENCE_FRAMES_REQUIRED = 8  # 8 × ~100ms = ~0.8s — unchanged
+        USE_P_FUTURE = True  # False = trigger on avg_p_now only (paper method); decide from event logs
         prev_vad_state = False
 
         # CHANGE 3a: p_now accumulator for averaging during silence window
@@ -171,6 +172,9 @@ class OutputHandler:
         # At startup, p_now idles at ~0.6 which would pass avg > 0.5 threshold.
         # Only start evaluating turns after user has spoken at least once.
         user_has_spoken = False
+
+        # Consecutive neural-VAD "speaking" frames (debounces single-frame blips)
+        neural_run = 0
 
         while self.running:
             try:
@@ -227,8 +231,8 @@ class OutputHandler:
                 vad_user_neural = vad_values[0] if len(vad_values) > 0 else 0.5
                 # vad_agent_neural = vad_values[1] if len(vad_values) > 1 else 0.5
 
-                p_now_agent = p_now[0] if p_now else 0.0
-                p_future_agent = p_future[0] if p_future else 0.0
+                p_now_agent = p_now[1] if p_now else 0.0
+                p_future_agent = p_future[1] if p_future else 0.0
 
                 # CHANGE 2: Use VAP's neural VAD for silence tracking
                 # Energy VAD (ih.is_user_speaking) stays in audio_callback for
@@ -237,9 +241,9 @@ class OutputHandler:
                 # it's trained on speech patterns, not just energy thresholds.
                 # We require BOTH to agree: neural says silent AND energy says silent.
                 # This makes false triggers from noise harder — dual confirmation.
-                vad_state = (vad_user_neural < 0.5) is False  # True = user speaking
+                neural_run = neural_run + 1 if vad_user_neural >= 0.5 else 0
                 # Dual check: if either says speaking, treat as speaking
-                vad_state = vad_state or ih.is_user_speaking
+                vad_state = ih.is_user_speaking or neural_run >= 3
                 agent_state = agent_speaking.is_set()
 
                 # ── VAD transition logging (NEW — additive only) ──────────
@@ -316,13 +320,13 @@ class OutputHandler:
                     (has_audio or has_transcript)):
 
                     # Compute avg p_now over silence window — paper's method
-                    window = p_now_accumulator[-SILENCE_FRAMES_REQUIRED:]
+                    window = p_now_accumulator[-3:]
                     avg_p_now = sum(window) / len(window) if window else 0.0
-                    window = p_future_accumulator[-SILENCE_FRAMES_REQUIRED:]
+                    window = p_future_accumulator[-3:]
                     avg_p_future = sum(window) / len(window) if window else 0.0
 
 
-                    if avg_p_now > 0.5 and avg_p_future > 0.5:
+                    if avg_p_now > 0.5 and (not USE_P_FUTURE or avg_p_future > 0.5):
                         # SHIFT: VAP + VAD both agree — agent should speak
                         actual_silence_frames = silence_frames
                         vad_silence_ms = round(actual_silence_frames * 100, 1)
@@ -448,7 +452,7 @@ class OutputHandler:
         self.event_log.log('TTS_START', p_now, p_future,
                            turn_id=self.current_turn_id + 1)
 
-        print("Alisha: ", end="", flush=True)
+        print("Hope: ", end="", flush=True)
 
         for chunk in ollama.chat(
             model="phi3:mini",
@@ -456,8 +460,8 @@ class OutputHandler:
                 {
                     "role": "system",
                     "content": (
-                        "You are Alisha, a warm therapist at Carewell. "
-                        "Reply warmly in 1-2 sentence only. No more."
+                        "You are Hope, a friendly mental therapist. Treat the patient with  "
+                        "Reply kindly and concisely in 1-2 sentences only. No more."
                     )
                 },
                 {"role": "user", "content": transcript}
